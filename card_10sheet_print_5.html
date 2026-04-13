@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -111,6 +112,18 @@ body {
 }
 .btn-print:hover { background: #1d4ed8; }
 
+.btn-auto {
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-auto:hover { background: #047857; }
+
 .btn-clear {
   background: white;
   color: #666;
@@ -129,12 +142,6 @@ body {
 }
 
 /* ===== A4シート本体 ===== */
-/*
-  ミシン目枠: 91mm × 55mm
-  画像サイズ: 89mm × 53mm（各辺1mm余白）
-  1列目left: 11mm、2列目left: 102mm
-  1行目top: 7mm、以降55mm間隔
-*/
 .a4-sheet {
   width: 210mm;
   height: 297mm;
@@ -231,9 +238,12 @@ body {
 
   <div class="actions">
     <button class="btn-print" onclick="window.print()">🖨️ 印刷する</button>
-    <button class="btn-clear" onclick="clearAll()">🗑️ すべてクリア</button>
+    <button class="btn-auto" onclick="autoPlace()">✨ 自動配置</button>
+    <button class="btn-clear" onclick="clearAll()">🗑️ 配置クリア</button>
+    <button class="btn-clear" onclick="clearImages()">🗑️ 画像クリア</button>
     <span class="hint">
       ① 上のサムネイルから画像を選ぶ → ② シートのマスをクリックして配置<br>
+      ✨ 自動配置：読み込んだ画像を配置1〜10に順番に自動で配置します<br>
       ※ 印刷ダイアログで「余白：なし」「倍率：100%」を選択してください
     </span>
   </div>
@@ -345,9 +355,26 @@ function selectImage(idx, src) {
   document.body.style.cursor = 'crosshair';
 }
 
+// ===== 自動配置 =====
+function autoPlace() {
+  let count = 0;
+  for (let i = 0; i < TOTAL_CELLS; i++) {
+    if (images[i]) {
+      const img = document.getElementById('cellimg-' + i);
+      const cell = document.getElementById('cell-' + i);
+      img.src = images[i];
+      img.style.display = 'block';
+      cell.classList.add('has-image');
+      document.getElementById('hint-' + i).style.display = 'none';
+      count++;
+    }
+  }
+  if (count === 0) {
+    alert('画像が読み込まれていません。先に画像を取り込んでください。');
+  }
+}
+
 // ===== カード絶対座標定義 =====
-// 列左スタート: 15mm, 106mm
-// 行上スタート: 12mm, 67mm, 122mm, 177mm, 232mm
 const LEFTS = ['10.5mm', '105.5mm'];
 const TOPS  = ['5mm', '62mm', '119mm', '176mm', '233mm'];
 
@@ -409,6 +436,22 @@ for (let i = 0; i < TOTAL_CELLS; i++) {
   })(i));
 
   sheet.appendChild(cell);
+}
+
+function clearImages() {
+  for (let i = 0; i < TOTAL_CELLS; i++) {
+    images[i] = null;
+    const tImg = document.getElementById('thumbimg-' + i);
+    tImg.src = '';
+    tImg.style.display = 'none';
+    const thumbWrap = document.getElementById('thumb-' + i);
+    thumbWrap.querySelector('.plus').style.display = '';
+    thumbWrap.classList.remove('loaded');
+    thumbWrap.style.outline = '';
+  }
+  selectedImageSrc = null;
+  selectedSlotIndex = null;
+  document.body.style.cursor = '';
 }
 
 function clearAll() {
