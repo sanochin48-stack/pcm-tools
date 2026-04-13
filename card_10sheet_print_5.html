@@ -203,11 +203,14 @@ body {
     margin: 0;
     width: 210mm;
     height: 297mm;
+    overflow: hidden;
   }
   .panel { display: none; }
   .a4-sheet {
     box-shadow: none;
-    page-break-after: always;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+    overflow: hidden;
   }
   .cell {
     border: none;
