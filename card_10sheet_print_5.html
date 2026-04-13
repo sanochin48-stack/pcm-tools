@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>カード10面 印刷フォーマット</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #d0d0d0;
+  font-family: sans-serif;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ===== コントロールパネル ===== */
+.panel {
+  background: white;
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  width: 210mm;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.image-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.img-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.img-thumb-wrap {
+  width: 64px;
+  height: 38px;
+  border: 1.5px dashed #aaa;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  background: #f8f8f8;
+  position: relative;
+  transition: border-color 0.2s;
+}
+
+.img-thumb-wrap:hover { border-color: #2563eb; background: #eff6ff; }
+.img-thumb-wrap.loaded { border-style: solid; border-color: #2563eb; }
+
+.img-thumb-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: none;
+}
+
+.img-thumb-wrap .plus {
+  font-size: 18px;
+  color: #bbb;
+  line-height: 1;
+}
+
+.img-thumb-wrap input[type=file] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.img-label {
+  font-size: 11px;
+  color: #666;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-print {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 24px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-print:hover { background: #1d4ed8; }
+
+.btn-clear {
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-clear:hover { background: #f5f5f5; }
+
+.hint {
+  font-size: 11px;
+  color: #999;
+  line-height: 1.6;
+}
+
+/* ===== A4シート本体 ===== */
+/*
+  ミシン目枠: 91mm × 55mm
+  画像サイズ: 89mm × 53mm（各辺1mm余白）
+  1列目left: 11mm、2列目left: 102mm
+  1行目top: 7mm、以降55mm間隔
+*/
+.a4-sheet {
+  width: 210mm;
+  height: 297mm;
+  background: white;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.cell {
+  width: 95mm;
+  height: 57mm;
+  position: absolute;
+  overflow: hidden;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cell:hover { background: rgba(37,99,235,0.05); }
+.cell.has-image { background: transparent; }
+
+.cell img {
+  width: 95mm;
+  height: 57mm;
+  object-fit: fill;
+  display: none;
+}
+
+.cell-num {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  font-size: 9px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cell-drop-hint {
+  font-size: 10px;
+  color: #ccc;
+  pointer-events: none;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ===== 印刷 ===== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  html, body {
+    background: white;
+    padding: 0;
+    margin: 0;
+    width: 210mm;
+    height: 297mm;
+  }
+  .panel { display: none; }
+  .a4-sheet {
+    box-shadow: none;
+    page-break-after: always;
+  }
+  .cell {
+    border: none;
+    background: transparent !important;
+  }
+  .cell-num { display: none; }
+  .cell-drop-hint { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- コントロールパネル -->
+<div class="panel">
+  <div class="panel-title">🖼️ 画像の割り当て（1〜10枚）</div>
+
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <label style="background:#f0f7ff;border:1.5px dashed #2563eb;border-radius:6px;padding:7px 16px;font-size:13px;color:#2563eb;cursor:pointer;font-weight:bold;">
+      📂 まとめて取り込む（最大10枚）
+      <input type="file" accept="image/*" multiple style="display:none;" onchange="bulkLoad(this)">
+    </label>
+    <span style="font-size:11px;color:#999;">または下の各スロットに個別に読み込めます</span>
+  </div>
+
+  <div class="image-slots" id="imageSlots">
+    <!-- JSで生成 -->
+  </div>
+
+  <div class="actions">
+    <button class="btn-print" onclick="window.print()">🖨️ 印刷する</button>
+    <button class="btn-clear" onclick="clearAll()">🗑️ すべてクリア</button>
+    <span class="hint">
+      ① 上のサムネイルから画像を選ぶ → ② シートのマスをクリックして配置<br>
+      ※ 印刷ダイアログで「余白：なし」「倍率：100%」を選択してください
+    </span>
+  </div>
+</div>
+
+<!-- A4シート -->
+<div class="a4-sheet" id="a4sheet">
+</div>
+
+<script>
+const TOTAL_CELLS = 10;
+const images = new Array(TOTAL_CELLS).fill(null); // ロード済み画像データURL
+let selectedImageSrc = null;
+let selectedSlotIndex = null;
+
+// ===== サムネイルスロット生成 =====
+const slotsContainer = document.getElementById('imageSlots');
+
+for (let i = 0; i < TOTAL_CELLS; i++) {
+  const slotDiv = document.createElement('div');
+  slotDiv.className = 'img-slot';
+
+  const thumbWrap = document.createElement('div');
+  thumbWrap.className = 'img-thumb-wrap';
+  thumbWrap.id = 'thumb-' + i;
+  thumbWrap.title = '画像' + (i+1) + 'を選択';
+
+  const plusSpan = document.createElement('span');
+  plusSpan.className = 'plus';
+  plusSpan.textContent = '+';
+
+  const thumbImg = document.createElement('img');
+  thumbImg.id = 'thumbimg-' + i;
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.addEventListener('change', (function(idx) {
+    return function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const src = ev.target.result;
+        images[idx] = src;
+        // サムネイル更新
+        const tImg = document.getElementById('thumbimg-' + idx);
+        tImg.src = src;
+        tImg.style.display = 'block';
+        plusSpan.style.display = 'none';
+        thumbWrap.classList.add('loaded');
+        // 選択状態にする
+        selectImage(idx, src);
+      };
+      reader.readAsDataURL(file);
+    };
+  })(i));
+
+  thumbWrap.appendChild(plusSpan);
+  thumbWrap.appendChild(thumbImg);
+  thumbWrap.appendChild(fileInput);
+
+  // サムネイルクリックで選択（画像読み込み済みの場合）
+  thumbWrap.addEventListener('click', (function(idx) {
+    return function(e) {
+      if (images[idx]) {
+        e.preventDefault();
+        selectImage(idx, images[idx]);
+      }
+    };
+  })(i));
+
+  const label = document.createElement('span');
+  label.className = 'img-label';
+  label.textContent = '画像' + (i+1);
+
+  slotDiv.appendChild(thumbWrap);
+  slotDiv.appendChild(label);
+  slotsContainer.appendChild(slotDiv);
+}
+
+function bulkLoad(input) {
+  const files = Array.from(input.files).slice(0, TOTAL_CELLS);
+  files.forEach((file, i) => {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const src = ev.target.result;
+      images[i] = src;
+      const tImg = document.getElementById('thumbimg-' + i);
+      tImg.src = src;
+      tImg.style.display = 'block';
+      const thumbWrap = document.getElementById('thumb-' + i);
+      thumbWrap.querySelector('.plus').style.display = 'none';
+      thumbWrap.classList.add('loaded');
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function selectImage(idx, src) {
+  selectedImageSrc = src;
+  selectedSlotIndex = idx;
+  // 全サムネイルの選択枠リセット
+  document.querySelectorAll('.img-thumb-wrap').forEach(tw => {
+    tw.style.outline = '';
+  });
+  document.getElementById('thumb-' + idx).style.outline = '2.5px solid #2563eb';
+  document.body.style.cursor = 'crosshair';
+}
+
+// ===== カード絶対座標定義 =====
+// 列左スタート: 15mm, 106mm
+// 行上スタート: 12mm, 67mm, 122mm, 177mm, 232mm
+const LEFTS = ['10.5mm', '105.5mm'];
+const TOPS  = ['5mm', '62mm', '119mm', '176mm', '233mm'];
+
+const POSITIONS = [];
+for (let row = 0; row < 5; row++) {
+  for (let col = 0; col < 2; col++) {
+    POSITIONS.push({ top: TOPS[row], left: LEFTS[col] });
+  }
+}
+
+const sheet = document.getElementById('a4sheet');
+
+for (let i = 0; i < TOTAL_CELLS; i++) {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.id = 'cell-' + i;
+  cell.style.top  = POSITIONS[i].top;
+  cell.style.left = POSITIONS[i].left;
+
+  const numSpan = document.createElement('span');
+  numSpan.className = 'cell-num';
+  numSpan.textContent = i + 1;
+
+  const cellImg = document.createElement('img');
+  cellImg.id = 'cellimg-' + i;
+
+  const hintDiv = document.createElement('div');
+  hintDiv.className = 'cell-drop-hint';
+  hintDiv.id = 'hint-' + i;
+  hintDiv.innerHTML = 'クリックして<br>配置';
+
+  cell.appendChild(numSpan);
+  cell.appendChild(cellImg);
+  cell.appendChild(hintDiv);
+
+  cell.addEventListener('click', (function(idx) {
+    return function() {
+      if (!selectedImageSrc) {
+        alert('先に上のパネルから画像を選んでください');
+        return;
+      }
+      const img = document.getElementById('cellimg-' + idx);
+      img.src = selectedImageSrc;
+      img.style.display = 'block';
+      cell.classList.add('has-image');
+      document.getElementById('hint-' + idx).style.display = 'none';
+    };
+  })(i));
+
+  cell.addEventListener('contextmenu', (function(idx) {
+    return function(e) {
+      e.preventDefault();
+      const img = document.getElementById('cellimg-' + idx);
+      img.src = '';
+      img.style.display = 'none';
+      cell.classList.remove('has-image');
+      document.getElementById('hint-' + idx).style.display = '';
+    };
+  })(i));
+
+  sheet.appendChild(cell);
+}
+
+function clearAll() {
+  for (let i = 0; i < TOTAL_CELLS; i++) {
+    const img = document.getElementById('cellimg-' + i);
+    img.src = '';
+    img.style.display = 'none';
+    document.getElementById('cell-' + i).classList.remove('has-image');
+    document.getElementById('hint-' + i).style.display = '';
+  }
+}
+</script>
+</body>
+</html>

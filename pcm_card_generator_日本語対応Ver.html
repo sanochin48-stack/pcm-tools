@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCM Card Generator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+    }
+    .panel {
+      width: 380px;
+      min-width: 380px;
+      background: #fff;
+      padding: 24px 20px;
+      overflow-y: auto;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .panel h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 18px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 10px;
+    }
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin: 16px 0 6px;
+    }
+    .upload-area {
+      border: 2px dashed #c0c8d8;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fafbfc;
+      position: relative;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: #5BA4BE;
+      background: #f0f8ff;
+    }
+    .upload-area input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon { font-size: 28px; margin-bottom: 6px; }
+    .upload-text { font-size: 13px; color: #666; }
+    .upload-text strong { color: #5BA4BE; }
+
+    .status-msg {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-top: 8px;
+      display: none;
+    }
+    .status-msg.ok  { background: #e8f5e9; color: #2e7d32; }
+    .status-msg.err { background: #fdecea; color: #c62828; }
+    .divider { border: none; border-top: 1px solid #e8e8e8; margin: 16px 0 0; }
+
+    /* Person list */
+    .person-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 6px;
+      background: #fafafa;
+    }
+    .person-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+      font-size: 13px;
+      color: #333;
+    }
+    .person-item:hover { background: #f0f8ff; border-color: #c0d8e8; }
+    .person-item.active { background: #e8f4fb; border-color: #5BA4BE; font-weight: 600; }
+    .person-no {
+      font-size: 11px;
+      color: #aaa;
+      width: 18px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .person-base-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .person-name { flex: 1; }
+    .person-meta { font-size: 11px; color: #999; white-space: nowrap; }
+
+    input[type="text"], select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #333;
+      background: #fafafa;
+    }
+    input[type="text"]:focus, select:focus {
+      outline: none; border-color: #5BA4BE; background: #fff;
+    }
+    .type-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .type-swatch { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
+    .type-name { width: 88px; font-size: 12px; color: #444; flex-shrink: 0; }
+    .type-row input[type="number"] {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #333;
+      background: #fafafa;
+    }
+    .type-row input[type="number"]:focus { outline: none; border-color: #5BA4BE; background: #fff; }
+    .order-btns { display: flex; flex-direction: column; gap: 2px; }
+    .order-btns button {
+      width: 22px; height: 18px;
+      padding: 0;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      background: #f5f5f5;
+      font-size: 9px;
+      cursor: pointer;
+      line-height: 1;
+      color: #555;
+    }
+    .order-btns button:hover { background: #e0e0e0; }
+    .order-btns button:disabled { opacity: 0.3; cursor: default; }
+    .select-row { display: flex; gap: 10px; }
+    .select-row > div { flex: 1; }
+    .select-row label { font-size: 11px; color: #666; display: block; margin-bottom: 3px; }
+    .btn-generate {
+      width: 100%;
+      margin-top: 18px;
+      padding: 11px;
+      background: #1a1a2e;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-generate:hover { background: #2d2d50; }
+    .btn-download {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px;
+      background: #fff;
+      color: #1a1a2e;
+      border: 2px solid #1a1a2e;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-download:hover { background: #f0f2f5; }
+    .btn-download-all {
+      width: 100%;
+      margin-top: 6px;
+      padding: 10px;
+      background: #fff;
+      color: #5BA4BE;
+      border: 2px solid #5BA4BE;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: none;
+    }
+    .btn-download-all:hover { background: #f0f8ff; }
+    .preview {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    canvas {
+      max-width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      border-radius: 4px;
+    }
+    .empty-state {
+      text-align: center;
+      color: #bbb;
+      font-size: 13px;
+      padding: 30px 10px;
+    }
+    .empty-state .icon { font-size: 36px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="panel">
+  <h1>PCM Card Generator</h1>
+
+  <!-- CSV Upload -->
+  <div class="section-label">CSVファイルを読み込む</div>
+  <div class="upload-area" id="dropZone">
+    <input type="file" id="csvInput" accept=".csv,text/csv" onchange="onCsvSelect(event)">
+    <div class="upload-icon">📂</div>
+    <div class="upload-text"><strong>クリックまたはドラッグ</strong>してCSVを選択</div>
+  </div>
+  <div class="status-msg" id="statusMsg"></div>
+
+  <!-- Person List -->
+  <div id="listSection" style="display:none">
+    <div class="section-label">メンバーを選択</div>
+    <div class="person-list" id="personList"></div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Manual edit area -->
+  <div class="section-label">名前</div>
+  <input type="text" id="nameInput" placeholder="例: MIZUHO SANO" value="">
+
+  <div class="section-label">Base / Phase</div>
+  <div class="select-row">
+    <div>
+      <label>Base（外枠色）</label>
+      <select id="baseSelect">
+        <option value="シンカー">シンカー</option>
+        <option value="パシスター">パシスター</option>
+        <option value="ハーモナイザー">ハーモナイザー</option>
+        <option value="イマジナー">イマジナー</option>
+        <option value="レベル">レベル</option>
+        <option value="プロモーター">プロモーター</option>
+      </select>
+    </div>
+    <div>
+      <label>Phase（内枠色）</label>
+      <select id="phaseSelect">
+        <option value="シンカー">シンカー</option>
+        <option value="パシスター">パシスター</option>
+        <option value="ハーモナイザー">ハーモナイザー</option>
+        <option value="イマジナー">イマジナー</option>
+        <option value="レベル">レベル</option>
+        <option value="プロモーター">プロモーター</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section-label">各タイプのスコア（0〜100）　　<span style="font-weight:400;font-size:10px;color:#aaa">↑↓で並び順を調整</span></div>
+  <div id="typeInputs"></div>
+
+  <button class="btn-generate" onclick="generate()">カードを生成</button>
+  <button class="btn-download" onclick="download()">ダウンロード（PNG）</button>
+  <button class="btn-download-all" id="btnDownloadAll" onclick="downloadAll()">全員分をダウンロード</button>
+</div>
+
+<div class="preview">
+  <canvas id="card" width="910" height="550"></canvas>
+</div>
+
+<script>
+const TYPES = {
+  シンカー:      { color: '#5BA4BE' },
+  パシスター:    { color: '#7F1184' },
+  ハーモナイザー:{ color: '#FAA910' },
+  イマジナー:    { color: '#A0522D' },
+  レベル:        { color: '#FFF000' },
+  プロモーター:  { color: '#FF2D2D' },
+};
+
+let order = ['シンカー', 'パシスター', 'ハーモナイザー', 'イマジナー', 'レベル', 'プロモーター'];
+const vals = { シンカー:0, パシスター:0, ハーモナイザー:0, イマジナー:0, レベル:0, プロモーター:0 };
+
+let csvData = []; // 全員分のデータ
+let selectedIndex = -1;
+
+// ---- CSV Drop & Load ----
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadCsv(file);
+});
+
+function onCsvSelect(e) {
+  const file = e.target.files[0];
+  if (file) loadCsv(file);
+}
+
+function loadCsv(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      parseCsv(text);
+    } catch(err) {
+      showStatus('CSVの読み込みに失敗しました: ' + err.message, 'err');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseCsv(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) { showStatus('データが見つかりません', 'err'); return; }
+
+  const header = lines[0].split(',').map(h => h.trim());
+  const rows = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim());
+    if (cols.length < 2 || !cols[1]) continue;
+
+    const get = (key) => {
+      const idx = header.findIndex(h => h.toLowerCase() === key.toLowerCase());
+      return idx >= 0 ? cols[idx] : '';
+    };
+    const getNum = (key) => {
+      const v = parseInt(get(key), 10);
+      return isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
+    };
+
+    rows.push({
+      no:    get('No'),
+      name:  get('名前'),
+      base:  get('ベース'),
+      phase: get('フェーズ'),
+      scores: {
+        シンカー:      getNum('シンカー%'),
+        パシスター:    getNum('パシスター%'),
+        ハーモナイザー:getNum('ハーモナイザー%'),
+        イマジナー:    getNum('イマジナー%'),
+        レベル:        getNum('レベル%'),
+        プロモーター:  getNum('プロモーター%'),
+      },
+      order: (() => {
+        const nos = {
+          シンカー:      parseInt(get('シンカーNo'),10)      || 99,
+          パシスター:    parseInt(get('パシスターNo'),10)    || 99,
+          ハーモナイザー:parseInt(get('ハーモナイザーNo'),10)|| 99,
+          イマジナー:    parseInt(get('イマジナーNo'),10)    || 99,
+          レベル:        parseInt(get('レベルNo'),10)        || 99,
+          プロモーター:  parseInt(get('プロモーターNo'),10)  || 99,
+        };
+        return Object.keys(nos).sort((a, b) => nos[a] - nos[b]);
+      })()
+    });
+  }
+
+  if (rows.length === 0) { showStatus('有効なデータが見つかりません', 'err'); return; }
+
+  csvData = rows;
+  showStatus(`✓ ${rows.length}件のデータを読み込みました`, 'ok');
+  renderPersonList();
+  document.getElementById('btnDownloadAll').style.display = 'block';
+
+  // 最初の人を自動選択
+  selectPerson(0);
+}
+
+function renderPersonList() {
+  const list = document.getElementById('personList');
+  list.innerHTML = '';
+  csvData.forEach((p, idx) => {
+    const item = document.createElement('div');
+    item.className = 'person-item' + (idx === selectedIndex ? ' active' : '');
+    item.onclick = () => selectPerson(idx);
+    const dotColor = TYPES[p.base] ? TYPES[p.base].color : '#ccc';
+    item.innerHTML = `
+      <span class="person-no">${p.no}</span>
+      <span class="person-base-dot" style="background:${dotColor}"></span>
+      <span class="person-name">${p.name}</span>
+      <span class="person-meta">${p.base}</span>
+    `;
+    list.appendChild(item);
+  });
+  document.getElementById('listSection').style.display = 'block';
+}
+
+function selectPerson(idx) {
+  selectedIndex = idx;
+  const p = csvData[idx];
+
+  // UIに反映
+  document.getElementById('nameInput').value = p.name;
+  if (TYPES[p.base])  document.getElementById('baseSelect').value  = p.base;
+  if (TYPES[p.phase]) document.getElementById('phaseSelect').value = p.phase;
+
+  // スコアと並び順を反映
+  for (const key of Object.keys(vals)) vals[key] = p.scores[key] || 0;
+  order = [...p.order];
+
+  renderTypeInputs();
+  generate();
+
+  // リストのactive更新
+  document.querySelectorAll('.person-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+}
+
+// ---- Type Inputs ----
+function renderTypeInputs() {
+  const container = document.getElementById('typeInputs');
+  container.innerHTML = '';
+  order.forEach((key, idx) => {
+    const t = TYPES[key];
+    const row = document.createElement('div');
+    row.className = 'type-row';
+    row.innerHTML = `
+      <div class="type-swatch" style="background:${t.color}"></div>
+      <span class="type-name">${key}</span>
+      <input type="number" id="val_${key}" min="0" max="100" value="${vals[key]}"
+             oninput="vals['${key}']=Math.min(100,Math.max(0,+this.value||0));generate()">
+      <div class="order-btns">
+        <button onclick="moveItem('${key}',-1)" ${idx===0?'disabled':''}>▲</button>
+        <button onclick="moveItem('${key}',+1)" ${idx===order.length-1?'disabled':''}>▼</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function moveItem(key, dir) {
+  const i = order.indexOf(key);
+  const j = i + dir;
+  if (j < 0 || j >= order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  renderTypeInputs();
+  generate();
+}
+
+// ---- Status ----
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg ' + type;
+  el.style.display = 'block';
+}
+
+// ---- Card Generation ----
+function generate() {
+  const canvas = document.getElementById('card');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const name = document.getElementById('nameInput').value.trim().toUpperCase() || 'YOUR NAME';
+  const base = document.getElementById('baseSelect').value;
+  const phase = document.getElementById('phaseSelect').value;
+
+  const sorted = [...order].map(key => [key, vals[key]])
+    .sort((a, b) => b[1] !== a[1]
+      ? b[1] - a[1]
+      : order.indexOf(a[0]) - order.indexOf(b[0])
+    );
+
+  const outerColor = TYPES[base].color;
+  const innerColor = TYPES[phase].color;
+
+  // 全体を白で塗りつぶし
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // 余白: 1mm = 10px
+  const margin = 10;
+  const drawW = W - margin * 2;
+  const drawH = H - margin * 2;
+
+  // 外枠（余白0から描画 = 画像端まで）
+  const bOuter = 15.75;
+  ctx.strokeStyle = outerColor;
+  ctx.lineWidth = bOuter;
+  ctx.strokeRect(bOuter / 2, bOuter / 2, W - bOuter, H - bOuter);
+
+  // 一番外側に白線1px
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+  // 内枠
+  const gap = 14;
+  const innerOff = bOuter + gap;
+  ctx.strokeStyle = innerColor;
+  ctx.lineWidth = 15.75;
+  ctx.strokeRect(innerOff, innerOff, W - 2 * innerOff, H - 2 * innerOff);
+
+  // 名前
+  ctx.fillStyle = '#111111';
+  ctx.font = 'bold 36px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(name, W / 2, 80);
+
+  // チャートエリア（marginなしで座標計算）
+  ctx.font = '18px Arial, sans-serif';
+  const labelWidth = ctx.measureText('ハーモナイザー').width;
+  const innerLeft = innerOff;
+  const innerRight = W - innerOff;
+  const chartL = innerLeft + labelWidth + 30;
+  const chartR = innerRight - 20;
+
+  const chartT = 105;
+  const innerBottomInside = H - (bOuter + gap) - bOuter / 2;
+  const chartB = innerBottomInside - 10;
+  const chartW = chartR - chartL - 8;
+  const chartH = chartB - chartT;
+  const n = sorted.length;
+  const barGap = 4;
+  const barH = Math.floor((chartH - barGap * (n - 1)) / n);
+
+  // 6番目バー下端をchartBに固定し、上に積み上げる、さらに全体を4px上へ
+  const totalH = barH * n + barGap * (n - 1);
+  const startY = chartB - totalH - 8;
+
+  let currentY = startY;
+  for (let i = 0; i < n; i++) {
+    const [key, val] = sorted[n - 1 - i];
+    const barW = Math.round(val / 100 * chartW);
+    const y = currentY;
+
+    ctx.fillStyle = TYPES[key].color;
+    ctx.fillRect(chartL, y, barW, barH);
+
+    ctx.fillStyle = '#111111';
+    ctx.font = '18px Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(key, chartL - 14, y + barH / 2);
+    ctx.textBaseline = 'alphabetic';
+
+    currentY += barH + barGap;
+  }
+}
+
+// ---- Download current card ----
+function download() {
+  const canvas = document.getElementById('card');
+  const name = document.getElementById('nameInput').value.trim().replace(/\s+/g, '_') || 'pcm_card';
+  const a = document.createElement('a');
+  a.download = name + '_pcm_card.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+// ---- Download all cards one by one ----
+async function downloadAll() {
+  if (csvData.length === 0) return;
+  const origIdx = selectedIndex;
+
+  for (let i = 0; i < csvData.length; i++) {
+    selectPerson(i);
+    await new Promise(r => setTimeout(r, 80)); // canvasの描画を待つ
+    const canvas = document.getElementById('card');
+    const name = csvData[i].name.replace(/\s+/g, '_') || 'pcm_card';
+    const a = document.createElement('a');
+    a.download = `${String(i+1).padStart(2,'0')}_${name}_pcm_card.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    await new Promise(r => setTimeout(r, 300)); // ブラウザの連続DL制限対策
+  }
+
+  // 元の選択に戻す
+  if (origIdx >= 0) selectPerson(origIdx);
+  showStatus(`✓ ${csvData.length}件のカードをダウンロードしました`, 'ok');
+}
+
+// ---- Init ----
+window.addEventListener('load', () => {
+  renderTypeInputs();
+  generate();
+});
+
+document.querySelectorAll('select, input[type="text"]').forEach(el => {
+  el.addEventListener('change', generate);
+  el.addEventListener('input', generate);
+});
+</script>
+</body>
+</html>
